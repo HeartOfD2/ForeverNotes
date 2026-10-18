@@ -1,0 +1,38 @@
+## Interface: 16001
+## Title: ForeverNotes
+## Title-deDE: ForeverNotes
+## Notes: Notes, player notes, drawings, an ignore list and sticky notes. Optionally inside the EllesmereUI options window.
+## Notes-deDE: Notizen, Spieler-Notizen, Zeichnungen, Ignorierliste und Haftnotizen. Optional im EllesmereUI-Optionsfenster.
+## Author: HeartOfD2
+## Version: 0.1.0
+## X-Website: https://github.com/HeartOfD2/ForeverNotes
+## Category: Miscellaneous
+## IconTexture: Interface\AddOns\ForeverNotes\Media\Logo
+## OptionalDeps: EllesmereUI
+## SavedVariables: ForeverNotesDB
+## AddonCompartmentFunc: ForeverNotes_OnCompartmentClick
+## AddonCompartmentFuncOnEnter: ForeverNotes_OnCompartmentEnter
+## AddonCompartmentFuncOnLeave: ForeverNotes_OnCompartmentLeave
+
+Locales\enUS.lua
+Locales\deDE.lua
+Core.lua
+Data\Store.lua
+Features\Ignore.lua
+Data\Transfer.lua
+UI\Fonts.lua
+UI\Theme.lua
+UI\Kit.lua
+UI\KitForms.lua
+UI\Editor.lua
+UI\Canvas.lua
+UI\Views.lua
+UI\IgnoreView.lua
+UI\TransferView.lua
+UI\MiniWindow.lua
+UI\Popup.lua
+UI\Stickies.lua
+UI\Settings.lua
+UI\OptionsWindow.lua
+UI\MinimapButton.lua
+Integration\EUIPages.lua
