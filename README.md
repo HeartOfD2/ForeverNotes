@@ -10,6 +10,8 @@ window and take over its accent colour, font and language.
 > **Unofficial.** This addon is not affiliated with or endorsed by EllesmereUI. EllesmereUI is optional and is
 > installed separately. No code, graphics or fonts from EllesmereUI are included.
 
+![In game](docs/screenshots/00-In-game.png)
+
 ![Overview](docs/screenshots/01-Overview.png)
 
 ![Notebook](docs/screenshots/02-Notebook.png)
@@ -64,8 +66,7 @@ Nothing else. ForeverNotes uses no libraries.
 | `/forevernotes note` | new note for your target (works as a macro) |
 
 The **minimap button** opens ForeverNotes with a left-click and the mini window with a right-click; drag it to move it
-(it can be hidden under Settings › General or with `/forevernotes minimap`). The addon compartment opens the ForeverNotes
-window too (with the EllesmereUI section switched on: the mini window).
+(it can be hidden under Settings › General or with `/forevernotes minimap`). The addon compartment entry works the same way.
 The window has the same pages everywhere: **Notebook** (Notes, Drawings), **Players** (Player Notes,
 Ignore List) and **Settings** (General, Target Popup, Sticky Notes, Ignore & Sound, Export / Import).
 

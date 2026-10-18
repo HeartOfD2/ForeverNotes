@@ -6,6 +6,7 @@
 ## Author: HeartOfD2
 ## Version: 0.1.0
 ## X-Website: https://github.com/HeartOfD2/ForeverNotes
+## X-Curse-Project-ID: 1752845
 ## Category: Miscellaneous
 ## IconTexture: Interface\AddOns\ForeverNotes\Media\Logo
 ## OptionalDeps: EllesmereUI
