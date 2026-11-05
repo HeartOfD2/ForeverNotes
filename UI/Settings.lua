@@ -33,6 +33,7 @@ function Settings.Modules()
         { key = "Settings", title = L["Settings"], desc = L["Appearance, popup, sticky notes, ignoring and transfer."],
             pages = {
                 { key = "general", label = L["General"], form = "general" },
+                { key = "themeEditor", label = L["Theme editor"], form = "themeEditor" },
                 { key = "popup", label = L["Target Popup"], form = "popup" },
                 { key = "sticky", label = L["Sticky Notes"], form = "sticky" },
                 { key = "ignoreSettings", label = L["Ignore & Sound"], form = "ignoreSettings" },
@@ -133,7 +134,7 @@ local function GeneralRows(host)
     local mini = s.mini
     return {
         { type = "header", text = L["APPEARANCE"] },
-        { type = "dropdown", text = L["Theme"], values = ThemeValues, get = Theme.Current,
+        { type = host == "eui" and "dropdown" or "themes", text = L["Theme"], values = ThemeValues, get = Theme.Current,
             set = function(key) Theme.Set(key) end,
             tip = host == "eui"
                 and L["Look of the ForeverNotes windows (options window, mini window, target popup, sticky notes). This EllesmereUI window keeps its own look."]
@@ -285,7 +286,17 @@ local function IgnoreRows()
     }
 end
 
-local FORMS = { general = GeneralRows, popup = PopupRows, sticky = StickyRows, ignoreSettings = IgnoreRows }
+-- The theme editor is one custom row (UI/ThemeEditor.lua), drawn by both renderers.
+local function ThemeEditorRows()
+    return {
+        { type = "header", text = L["OWN THEMES"] },
+        { type = "text", text = L["Make your own theme from any theme, change every color and share it as a code. The theme you edit is in use, so every window shows the change at once."] },
+        Kit.ThemeEditorRow(),
+    }
+end
+
+local FORMS = { general = GeneralRows, popup = PopupRows, sticky = StickyRows, ignoreSettings = IgnoreRows,
+    themeEditor = ThemeEditorRows }
 
 -- Rows of a form page for a host ("eui" | "standalone"); rows whose cond fails are left out.
 function Settings.Rows(form, host)
@@ -337,8 +348,20 @@ function Settings.RenderKit(parent, rows)
             row = Kit.PaletteRow(child, r.text, r.colors, r.get, Wrap(r.set), r.tip)
         elseif r.type == "text" then
             row = Kit.TextRow(child, r.text)
+        elseif r.type == "themes" then
+            row = Kit.ThemeGalleryRow(child, r.text, r.get, Wrap(r.set), r.tip)
         elseif r.type == "preview" then
             row = Kit.PreviewRow(child, r.text)
+        elseif r.type == "custom" and r.build then
+            row = CreateFrame("Frame", nil, child)
+            row.rowHeight = r.height or 60
+            row:SetHeight(row.rowHeight)
+            local ok, inner = pcall(r.build, row)
+            if not ok then geterrorhandler()(inner) end
+            row.inner = ok and inner or nil
+            function row:Update()
+                if self.inner and self.inner.Update then pcall(self.inner.Update, self.inner) end
+            end
         end
         if row then area.rows[#area.rows + 1] = row end
     end

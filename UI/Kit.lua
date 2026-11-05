@@ -1,6 +1,7 @@
--- UI kit: small themed building blocks for ForeverNotes' own frames (windows, buttons, inputs, lists, tabs, glow, menu).
+-- Shared file: the source is BeautifulSkins (UI/Kit.lua); change it there and sync, never here.
+-- UI kit: small themed building blocks for our own frames (windows, buttons, inputs, scroll areas, menu).
 -- Every widget paints itself through Theme.Bind, so theme, accent and font changes reach open windows live.
--- Frames are plain (never secure), so they work in combat. Named frames (needed for ESC) all start with "ForeverNotes".
+-- Frames are plain (never secure), so they work in combat. Named frames (needed for ESC) all start with the addon name.
 local _, ns = ...
 local L = ns.L
 local Theme = ns.Theme
@@ -16,6 +17,12 @@ local WHEEL_STEP = 30
 -- Text, dividers, hints, tooltips
 ---------------------------------------------------------------------------
 
+-- Colour of a text token; the accent as text uses its readable variant (a class or own accent may be too pale).
+function Kit.TextToken(T, key)
+    if key == "accent" then return T.accentText or T.accent end
+    return T[key] or T.text
+end
+
 -- Font string in the addon font (EUI's when loaded). colorKey = token name; false leaves the color to the owner (buttons, tabs).
 function Kit.Text(parent, size, colorKey, layer)
     local fs = parent:CreateFontString(nil, layer or "OVERLAY")
@@ -25,7 +32,7 @@ function Kit.Text(parent, size, colorKey, layer)
     Bind(fs, function(self, T)
         -- fnFont: a fixed font file for this string (font previews), else the addon font
         if not (self.fnFont and self:SetFont(self.fnFont, self.fnSize, "") ~= false) then Theme.SetFont(self, self.fnSize) end
-        if self.fnColor then Paint(self, T[self.fnColor] or T.text) end
+        if self.fnColor then Paint(self, Kit.TextToken(T, self.fnColor)) end
     end)
     return fs
 end
@@ -116,10 +123,10 @@ local function Circle(cx, cy, r, steps)
     return segs
 end
 
+-- Segments in a unit square, origin bottom left.
 local LOCK_BODY = { { 0.25, 0.12, 0.75, 0.12 }, { 0.75, 0.12, 0.75, 0.52 }, { 0.75, 0.52, 0.25, 0.52 },
     { 0.25, 0.52, 0.25, 0.12 } }
 
--- Segments in a unit square, origin bottom left. checkbox/bullets are the editor's line buttons.
 local GLYPHS = {
     close = { { 0.22, 0.22, 0.78, 0.78 }, { 0.22, 0.78, 0.78, 0.22 } },
     plus = { { 0.5, 0.18, 0.5, 0.82 }, { 0.18, 0.5, 0.82, 0.5 } },
@@ -131,6 +138,12 @@ local GLYPHS = {
     back = { { 0.18, 0.5, 0.82, 0.5 }, { 0.18, 0.5, 0.42, 0.74 }, { 0.18, 0.5, 0.42, 0.26 } },
     check = { { 0.18, 0.5, 0.42, 0.26 }, { 0.42, 0.26, 0.84, 0.74 } },
     grip = { { 0.3, 0.12, 0.88, 0.7 }, { 0.5, 0.12, 0.88, 0.5 }, { 0.7, 0.12, 0.88, 0.3 } },
+    search = Circle(0.43, 0.57, 0.24, 14),
+    gear = Circle(0.5, 0.5, 0.2, 12),
+    -- "fit all": four frame corners around a small box
+    fit = { { 0.12, 0.88, 0.36, 0.88 }, { 0.12, 0.88, 0.12, 0.64 }, { 0.88, 0.88, 0.64, 0.88 }, { 0.88, 0.88, 0.88, 0.64 },
+        { 0.12, 0.12, 0.36, 0.12 }, { 0.12, 0.12, 0.12, 0.36 }, { 0.88, 0.12, 0.64, 0.12 }, { 0.88, 0.12, 0.88, 0.36 },
+        { 0.36, 0.38, 0.64, 0.38 }, { 0.64, 0.38, 0.64, 0.62 }, { 0.64, 0.62, 0.36, 0.62 }, { 0.36, 0.62, 0.36, 0.38 } },
     lock = { { 0.35, 0.52, 0.35, 0.72 }, { 0.35, 0.72, 0.42, 0.82 }, { 0.42, 0.82, 0.58, 0.82 },
         { 0.58, 0.82, 0.65, 0.72 }, { 0.65, 0.72, 0.65, 0.52 } },
     unlock = { { 0.35, 0.52, 0.35, 0.8 }, { 0.35, 0.8, 0.42, 0.9 }, { 0.42, 0.9, 0.58, 0.9 },
@@ -145,13 +158,14 @@ for _, kind in ipairs({ "lock", "unlock" }) do
     for _, seg in ipairs(LOCK_BODY) do table.insert(GLYPHS[kind], seg) end
 end
 table.insert(GLYPHS.ignore, { 0.25, 0.75, 0.75, 0.25 })
+table.insert(GLYPHS.search, { 0.6, 0.4, 0.82, 0.18 })
+for i = 0, 7 do -- gear teeth
+    local a = i / 8 * 2 * math.pi
+    table.insert(GLYPHS.gear, { 0.5 + 0.3 * math.cos(a), 0.5 + 0.3 * math.sin(a), 0.5 + 0.4 * math.cos(a),
+        0.5 + 0.4 * math.sin(a) })
+end
 Kit.GLYPHS = GLYPHS
 
--- Window icons: open the large window / the mini window.
-GLYPHS.expand = { { 0.2, 0.2, 0.8, 0.2 }, { 0.8, 0.2, 0.8, 0.8 }, { 0.8, 0.8, 0.2, 0.8 }, { 0.2, 0.8, 0.2, 0.2 },
-    { 0.4, 0.4, 0.68, 0.68 }, { 0.68, 0.68, 0.68, 0.5 }, { 0.68, 0.68, 0.5, 0.68 } }
-GLYPHS.shrink = { { 0.16, 0.16, 0.54, 0.16 }, { 0.54, 0.16, 0.54, 0.54 }, { 0.54, 0.54, 0.16, 0.54 },
-    { 0.16, 0.54, 0.16, 0.16 }, { 0.84, 0.84, 0.64, 0.64 }, { 0.64, 0.64, 0.64, 0.8 }, { 0.64, 0.64, 0.8, 0.64 } }
 
 -- Size of one physical screen pixel in frame's own units (UI scale and frame scales included).
 local function PixelUnit(frame)
@@ -406,7 +420,7 @@ function Kit.IconButton(parent, size, kind, onClick, tip)
         self.active = on and true or false
         Tint(self)
     end
-    function b:SetColorOverride(key) -- e.g. "danger" for an ignored player
+    function b:SetColorOverride(key) -- e.g. "danger"
         self.colorOverride = key
         Tint(self)
     end
@@ -417,7 +431,7 @@ function Kit.IconButton(parent, size, kind, onClick, tip)
     return b
 end
 
--- Color square for group colors and the drawing palette. color = { r, g, b }.
+-- Color square for the accent quick picks and the color picker. color = { r, g, b }.
 function Kit.Swatch(parent, size, color, onClick)
     local b = CreateFrame("Button", nil, parent)
     b:SetSize(size, size)
@@ -894,7 +908,7 @@ function Kit.ShowFontPreview(row, item)
         preview:SetFrameStrata("FULLSCREEN_DIALOG")
         preview:SetFrameLevel(menu:GetFrameLevel() + 5)
         preview:SetClampedToScreen(true)
-        Bind(preview, function(self, T) Box(self, T, "bgAlt", "border", "panel") end)
+        Bind(preview, function(self, T) Box(self, T, "popup", "border", "popup") end)
         preview.name = Kit.Text(preview, 20, "text")
         preview.name:SetPoint("TOPLEFT", 12, -10)
         preview.name:SetPoint("RIGHT", -12, 0)
@@ -919,7 +933,7 @@ local function EnsureMenu()
     blocker:RegisterForClicks("AnyUp")
     blocker:SetScript("OnClick", function() Kit.CloseMenu() end)
     blocker:Hide()
-    menu = CreateFrame("Frame", "ForeverNotesMenu", UIParent, "BackdropTemplate")
+    menu = CreateFrame("Frame", ns.name .. "Menu", UIParent, "BackdropTemplate")
     menu:SetFrameStrata("FULLSCREEN_DIALOG")
     menu:SetFrameLevel(blocker:GetFrameLevel() + 10)
     menu:SetClampedToScreen(true)
@@ -927,8 +941,8 @@ local function EnsureMenu()
     menu.rows = {}
     menu:SetScript("OnHide", function() blocker:Hide() end)
     menu:Hide()
-    table.insert(UISpecialFrames, "ForeverNotesMenu")
-    Bind(menu, function(self, T) Box(self, T, "bgAlt", "border", "panel") end)
+    table.insert(UISpecialFrames, ns.name .. "Menu")
+    Bind(menu, function(self, T) Box(self, T, "popup", "border", "popup") end)
 end
 
 -- items = { { text, func(item), checked, disabled, color = { r, g, b }, title = true }, ... }
@@ -983,27 +997,20 @@ local function PaintWindow(win, T)
     win.content:ClearAllPoints()
     win.content:SetPoint("TOPLEFT", header, "BOTTOMLEFT", pad, -pad)
     win.content:SetPoint("BOTTOMRIGHT", -inset - pad, inset + pad)
-    -- Signature: a thin accent spine along the left edge, like the binding of a notebook (flat themes only).
-    Paint(win.spine, T.accent)
-    win.spine:ClearAllPoints()
-    win.spine:SetPoint("TOPLEFT", inset, -inset)
-    win.spine:SetPoint("BOTTOMLEFT", inset, inset)
-    win.spine:SetShown(win.showSpine and flat)
 end
 
 -- Top-level themed window. opts:
 --   name           global frame name (enables ESC via UISpecialFrames unless escape = false)
---   title, w, h, minW, minH, maxW, maxH, resizable, strata, ctx ("user" | "eui"), spine (default true)
---   headerHeight, closeButton (default true), lockButton, dragAnywhere
---   geometry       saved table with point, w, h, scale, lock (written on move/resize/lock)
---   onShow, onHide, onLock(locked)
+--   title, w, h, minW, minH, maxW, maxH, resizable, strata, ctx ("user" | "eui")
+--   headerHeight, closeButton (default true), dragAnywhere
+--   geometry       saved table with point, w, h, scale (written on move/resize)
+--   onShow, onHide
 function Kit.Window(opts)
     local win = CreateFrame("Frame", opts.name, UIParent, "BackdropTemplate")
     win:Hide() -- hidden before any script is set, so onHide does not fire on creation
     win.fnCtx = opts.ctx or "user"
     win.geo = opts.geometry
     win.headerHeight = opts.headerHeight or HEADER_H
-    win.showSpine = opts.spine ~= false
     win.minW, win.minH = opts.minW or 180, opts.minH or 120
     win:SetSize(opts.w or 320, opts.h or 380)
     win:SetFrameStrata(opts.strata or "MEDIUM")
@@ -1025,12 +1032,6 @@ function Kit.Window(opts)
     header.line = Kit.Divider(header)
     header.line:SetPoint("BOTTOMLEFT")
     header.line:SetPoint("BOTTOMRIGHT")
-    -- The spine sits on its own layer above the header fill (frames draw above their parent's textures).
-    local spineLayer = CreateFrame("Frame", nil, win)
-    spineLayer:SetAllPoints()
-    spineLayer:SetFrameLevel(win:GetFrameLevel() + 3)
-    win.spine = spineLayer:CreateTexture(nil, "OVERLAY")
-    win.spine:SetWidth(2)
 
     win.title = Kit.Text(header, 13, "header")
     win.title:SetPoint("LEFT", 10, 0)
@@ -1040,7 +1041,7 @@ function Kit.Window(opts)
     win.content = CreateFrame("Frame", nil, win)
 
     local function DragStart()
-        if not win.locked then win:StartMoving() end
+        win:StartMoving()
     end
     local function DragStop()
         win:StopMovingOrSizing()
@@ -1068,11 +1069,6 @@ function Kit.Window(opts)
     if opts.closeButton ~= false then
         win.closeButton = win:AddTool("close", function() win:Hide() end, L["Close"])
     end
-    if opts.lockButton then
-        win.lockButton = win:AddTool("unlock", function() win:SetLocked(not win.locked) end, function()
-            return win.locked and L["Unlock window"] or L["Lock window"]
-        end)
-    end
 
     if opts.resizable then
         local grip = CreateFrame("Button", nil, win)
@@ -1083,9 +1079,7 @@ function Kit.Window(opts)
         grip.glyph:SetPoint("CENTER")
         grip:SetScript("OnEnter", function(self) self.glyph:SetColorKey("accent") end)
         grip:SetScript("OnLeave", function(self) self.glyph:SetColorKey("textDim") end)
-        grip:SetScript("OnMouseDown", function()
-            if not win.locked then win:StartSizing("BOTTOMRIGHT") end
-        end)
+        grip:SetScript("OnMouseDown", function() win:StartSizing("BOTTOMRIGHT") end)
         grip:SetScript("OnMouseUp", DragStop)
         win.grip = grip
     end
@@ -1111,7 +1105,6 @@ function Kit.Window(opts)
         end
         if g.w and g.h then self:SetSize(math.max(self.minW, g.w), math.max(self.minH, g.h)) end
         self:SetScale(math.max(0.5, math.min(2, g.scale or 1)))
-        self:SetLocked(g.lock)
     end
 
     function win:SetScaleSaved(scale)
@@ -1119,17 +1112,6 @@ function Kit.Window(opts)
         self:SetScale(scale)
         if self.geo then self.geo.scale = scale end
         Kit.RefreshGlyphs()
-    end
-
-    function win:SetLocked(on)
-        self.locked = on and true or false
-        if self.geo then self.geo.lock = self.locked end
-        if self.grip then self.grip:SetShown(not self.locked) end
-        if self.lockButton then
-            self.lockButton:SetGlyph(self.locked and "lock" or "unlock")
-            self.lockButton:SetActive(self.locked)
-        end
-        if opts.onLock then opts.onLock(self.locked) end
     end
 
     win:SetScript("OnShow", function(self)

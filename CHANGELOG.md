@@ -1,5 +1,15 @@
 # Changelog — ForeverNotes
 
+## 0.2.0 (2026-11-05)
+
+- **Thirteen themes** instead of seven: Standard, Graphite, Midnight, Frost, Nord, Emerald, Ember, High contrast, Light,
+  Rosé, Parchment, Classic and, with EllesmereUI, EllesmereUI. A theme gallery shows them side by side.
+- **Theme editor** (Settings › Theme editor): make your own themes from any theme, pick every colour, see the contrast
+  live, and share a theme as a code (export / import).
+- Every theme was checked for readable contrast; a class or own accent colour is adjusted where it is used as text.
+- Fix: dragging the minimap button along the minimap no longer raises a Lua error.
+- The look is shared with BeautifulSkins, so both addons draw their windows the same way.
+
 ## 0.1.0 (beta)
 
 First release for the World of Warcraft Forever beta (Interface 16001).

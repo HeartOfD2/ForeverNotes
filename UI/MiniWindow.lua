@@ -242,6 +242,17 @@ local function Create()
         end,
     })
     local content = win.content
+
+    -- Lock: no moving, no resizing (Kit.Window has no lock support of its own).
+    function win:SetLocked(lock)
+        self.locked = lock and true or false
+        self:SetMovable(not self.locked)
+        if self.grip then self.grip:SetShown(not self.locked) end
+    end
+    win.header:SetScript("OnDragStart", function()
+        if not win.locked then win:StartMoving() end
+    end)
+
     win:AddTool("expand", function() Mini.OpenInPanel() end, L["Open in the large window"])
 
     ui.tabs = Kit.Tabs(content, {

@@ -78,11 +78,11 @@ local function Create()
         end
     end)
     button:SetScript("OnDragStart", function(self)
-        self.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+        self.icon:SetAlpha(0.6) -- no SetTexCoord: the icon has a mask and the game refuses tex coords then
         self:SetScript("OnUpdate", OnDragUpdate)
     end)
     button:SetScript("OnDragStop", function(self)
-        self.icon:SetTexCoord(0, 1, 0, 1)
+        self.icon:SetAlpha(1)
         self:SetScript("OnUpdate", nil)
     end)
     button:SetScript("OnEnter", function(self)

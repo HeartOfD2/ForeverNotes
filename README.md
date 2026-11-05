@@ -26,6 +26,10 @@ window and take over its accent colour, font and language.
 
 ![Export and import](docs/screenshots/07-Export-and-import.png)
 
+![Themes](docs/screenshots/08-Themes.png)
+
+![Theme editor](docs/screenshots/09-Theme-editor.png)
+
 ## Requirements
 
 | Addon | Needed | Download |
@@ -49,8 +53,9 @@ Nothing else. ForeverNotes uses no libraries.
   click away from the large window.
 - **Export / import:** everything at once, or tick single notes, drawings or player notes (grouped by group or
   player), optionally with the ignore list, as a text code to share.
-- **Looks:** seven themes (Standard, EllesmereUI when installed, Classic with the game's dialog frames, Parchment,
-  Midnight, Frost, Light), a free accent colour (theme default, EllesmereUI accent, class colour or any colour) and a
+- **Looks:** thirteen themes (Standard, EllesmereUI when installed, Classic with the game's dialog frames, Parchment,
+  Midnight, Frost, Graphite, Nord, Emerald, Ember, High contrast, Rosé, Light) with a gallery, a **theme editor** for
+  your own themes (live contrast check, export and import as a code), a free accent colour (theme default, EllesmereUI accent, class colour or any colour) and a
   font of your choice: EllesmereUI's font, the game's fonts, or the bundled Barlow, Fira Sans, Inter and Source Code
   Pro (each regular, semibold and bold), with a preview of every font.
 - English and German (automatic, or chosen in the settings).
@@ -68,7 +73,7 @@ Nothing else. ForeverNotes uses no libraries.
 The **minimap button** opens ForeverNotes with a left-click and the mini window with a right-click; drag it to move it
 (it can be hidden under Settings › General or with `/forevernotes minimap`). The addon compartment entry works the same way.
 The window has the same pages everywhere: **Notebook** (Notes, Drawings), **Players** (Player Notes,
-Ignore List) and **Settings** (General, Target Popup, Sticky Notes, Ignore & Sound, Export / Import).
+Ignore List) and **Settings** (General, Theme editor, Target Popup, Sticky Notes, Ignore & Sound, Export / Import).
 
 With EllesmereUI installed, *Settings › General › Integrate into EllesmereUI* adds the section **Notes** to its
 options window (on by default; a change takes effect after `/reload`). The ForeverNotes window stays available with
@@ -77,7 +82,7 @@ options window (on by default; a change takes effect after `/reload`). The Forev
 ## Installation
 
 Install from CurseForge, or copy the `ForeverNotes` folder into
-`World of Warcraft/_classic_beta_/Interface/AddOns/` (the folder name must stay exactly `ForeverNotes`).
+`World of Warcraft/_forever_/Interface/AddOns/` (the folder name must stay exactly `ForeverNotes`).
 
 ## Support
 

@@ -110,6 +110,12 @@ local function Render(parent, yOffset, rows)
             h = TextRow(parent, y, row)
         elseif row.type == "preview" then
             h = PreviewRow(parent, y, row)
+        elseif row.type == "custom" and row.build then
+            h = row.height or 60
+            if not IsPrebuild() then
+                local ok, err = pcall(row.build, ns.Views.Host(parent, y, h))
+                if not ok then geterrorhandler()(err) end
+            end
         end
         y = y - (h or 0)
     end

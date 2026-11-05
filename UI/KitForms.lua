@@ -1,4 +1,5 @@
--- Form building blocks for settings pages in ForeverNotes' own options window: section header, switch, slider, dropdown,
+-- Shared file: the source is BeautifulSkins (UI/KitForms.lua); change it there and sync, never here.
+-- Form building blocks for settings pages in our options window: section header, switch, slider, dropdown,
 -- button row, color button, palette and text. Same rules as UI/Kit.lua: plain frames, painted through Theme.Bind, so
 -- theme and accent changes reach them live. Each *Row returns a frame with :Update() (re-read the value) and a
 -- height in row.rowHeight.
@@ -198,8 +199,8 @@ end
 
 local function Row(parent, text, tip, height)
     local row = CreateFrame("Frame", nil, parent)
-    row:SetHeight(height or 30)
-    row.rowHeight = height or 30
+    row:SetHeight(height or 44)
+    row.rowHeight = height or 44
     row.label = Kit.Text(row, 12, "text")
     row.label:SetPoint("LEFT", 4, 0)
     row.label:SetWordWrap(false)
@@ -249,17 +250,17 @@ function Kit.ToggleRow(parent, text, get, set, tip)
 end
 
 function Kit.SliderRow(parent, text, minValue, maxValue, step, get, set, tip)
-    local row = Row(parent, text, tip, 32)
+    local row = Row(parent, text, tip)
     return PlaceControl(row, Kit.Slider(row, minValue, maxValue, step, get, set))
 end
 
 function Kit.DropdownRow(parent, text, values, get, set, tip)
-    local row = Row(parent, text, tip, 32)
+    local row = Row(parent, text, tip)
     return PlaceControl(row, Kit.Dropdown(row, CONTROL_W, values, get, set))
 end
 
 function Kit.ButtonRow(parent, text, onClick, tip, label)
-    local row = Row(parent, label or "", tip, 34)
+    local row = Row(parent, label or "", tip)
     local b = Kit.Button(row, CONTROL_W, text, function() onClick() end, 24)
     return PlaceControl(row, b)
 end
@@ -272,6 +273,169 @@ end
 function Kit.PaletteRow(parent, text, colors, get, set, tip)
     local row = Row(parent, text, tip)
     return PlaceControl(row, Kit.Palette(row, colors, get, set, 18))
+end
+
+-- Theme gallery: every theme as a small card drawn in its own colours (window, header strip, text, accent), the active
+-- one framed in the current accent. Columns follow the width (row:Measure()); get() -> key, set(key).
+local CARD_MIN_W, CARD_H, LABEL_H, GAP = 104, 50, 18, 8
+
+local function Edges(frame, size)
+    local t = {}
+    for i, spec in ipairs({ { "TOPLEFT", "TOPRIGHT", nil, size }, { "BOTTOMLEFT", "BOTTOMRIGHT", nil, size },
+        { "TOPLEFT", "BOTTOMLEFT", size, nil }, { "TOPRIGHT", "BOTTOMRIGHT", size, nil } }) do
+        local e = frame:CreateTexture(nil, "OVERLAY", nil, 7)
+        e:SetPoint(spec[1])
+        e:SetPoint(spec[2])
+        if spec[3] then e:SetWidth(spec[3]) else e:SetHeight(spec[4]) end
+        t[i] = e
+    end
+    return t
+end
+
+local function SetEdges(edges, c, a)
+    for _, e in ipairs(edges) do e:SetColorTexture(c[1], c[2], c[3], a or c[4] or 1) end
+end
+
+local function ThemeCard(row, entry)
+    local card = CreateFrame("Button", nil, row)
+    card.key = entry.key
+    card.fill = card:CreateTexture(nil, "BACKGROUND")
+    card.fill:SetPoint("TOPLEFT")
+    card.fill:SetPoint("TOPRIGHT")
+    card.fill:SetHeight(CARD_H)
+    card.strip = card:CreateTexture(nil, "BORDER")
+    card.strip:SetPoint("TOPLEFT", card.fill, "TOPLEFT", 0, 0)
+    card.strip:SetPoint("TOPRIGHT", card.fill, "TOPRIGHT", 0, 0)
+    card.strip:SetHeight(12)
+    card.sample = card:CreateFontString(nil, "OVERLAY")
+    card.sample:SetPoint("TOPLEFT", card.fill, "TOPLEFT", 9, -17)
+    card.line = card:CreateTexture(nil, "ARTWORK")
+    card.line:SetSize(34, 3)
+    card.line:SetPoint("TOPLEFT", card.sample, "BOTTOMLEFT", 0, -5)
+    card.pill = card:CreateTexture(nil, "ARTWORK")
+    card.pill:SetSize(20, 8)
+    card.pill:SetPoint("BOTTOMRIGHT", card.fill, "BOTTOMRIGHT", -8, 8)
+    -- the frame lies around the swatch only, the name sits below it
+    local box = CreateFrame("Frame", nil, card)
+    box:SetPoint("TOPLEFT", card.fill, "TOPLEFT", -2, 2)
+    box:SetPoint("BOTTOMRIGHT", card.fill, "BOTTOMRIGHT", 2, -2)
+    card.ring = Edges(box, 2)
+    card.thin = Edges(CreateFrame("Frame", nil, card), 1)
+    local thinBox = card.thin[1]:GetParent()
+    thinBox:SetAllPoints(card.fill)
+    card.label = Kit.Text(card, 11, "textDim")
+    card.label:SetPoint("TOPLEFT", card.fill, "BOTTOMLEFT", 1, -4)
+    card.label:SetPoint("TOPRIGHT", card.fill, "BOTTOMRIGHT", -1, -4)
+    card.label:SetWordWrap(false)
+    card.label:SetText(entry.label)
+    function card:SetEntry(e)
+        self.key = e.key
+        self.label:SetText(e.label)
+    end
+    card.hover = card:CreateTexture(nil, "HIGHLIGHT")
+    card.hover:SetAllPoints(card.fill)
+    card:SetScript("OnClick", function(self) row:Pick(self.key) end)
+    card:SetScript("OnEnter", function(self)
+        self.hovered = true
+        self:Paint(self.active, self.accent)
+    end)
+    card:SetScript("OnLeave", function(self)
+        self.hovered = false
+        self:Paint(self.active, self.accent)
+    end)
+    Kit.Tooltip(card, function(self) return { self.label:GetText() } end, "ANCHOR_TOP")
+
+    function card:Paint(active, accent)
+        self.active, self.accent = active, accent
+        local T = Theme.Tokens(self.key) or Theme.Get()
+        -- hover tint in the card's own mode: white veils dark swatches, black shades light ones
+        if T.mode == "light" then self.hover:SetColorTexture(0, 0, 0, 0.08) else self.hover:SetColorTexture(1, 1, 1, 0.08) end
+        self.fill:SetColorTexture(T.bg[1], T.bg[2], T.bg[3], 1)
+        self.strip:SetColorTexture(T.bgAlt[1], T.bgAlt[2], T.bgAlt[3], 1)
+        Theme.SetFont(self.sample, 15)
+        self.sample:SetText("Aa")
+        self.sample:SetTextColor(T.text[1], T.text[2], T.text[3], 1)
+        self.line:SetColorTexture(T.textDim[1], T.textDim[2], T.textDim[3], 1)
+        self.pill:SetColorTexture(T.accent[1], T.accent[2], T.accent[3], 1)
+        SetEdges(self.thin, T.border, math.max(0.25, T.border[4] or 1))
+        SetEdges(self.ring, accent, active and 1 or 0)
+        self.label.fnColor = active and "accent" or (self.hovered and "text" or "textDim")
+        Refresh(self.label)
+    end
+    return card
+end
+
+function Kit.ThemeGalleryRow(parent, text, get, set, tip)
+    local row = CreateFrame("Frame", nil, parent)
+    row.label = Kit.Text(row, 12, "text")
+    row.label:SetPoint("TOPLEFT", 4, -6)
+    row.label:SetText(text or "")
+    if tip then
+        row:EnableMouse(true)
+        Kit.Tooltip(row, { text ~= "" and text or tip, text ~= "" and tip or nil }, "ANCHOR_TOPLEFT")
+    end
+    row.cards, row.all = {}, {}
+
+    -- one card per theme; own themes come and go (theme editor), so the cards follow Theme.List()
+    function row:Sync()
+        local list = Theme.List()
+        local same = #list == #self.cards
+        for i, entry in ipairs(list) do
+            if not same or self.cards[i].key ~= entry.key or self.cards[i].label:GetText() ~= entry.label then
+                same = false
+                break
+            end
+        end
+        if same then return false end
+        for _, card in ipairs(self.all) do card:Hide() end
+        for i = #self.cards, 1, -1 do self.cards[i] = nil end
+        for i, entry in ipairs(list) do
+            local card = self.all[i]
+            if not card then
+                card = ThemeCard(row, entry)
+                self.all[i] = card
+            end
+            card:SetEntry(entry)
+            card:Show()
+            self.cards[i] = card
+        end
+        return true
+    end
+    row:Sync()
+
+    function row:Pick(key)
+        if key ~= get() then set(key) end
+        self:Update()
+    end
+
+    function row:Measure()
+        local w = math.max(self:GetWidth() or 0, 2 * CARD_MIN_W + GAP + 8)
+        local cols = math.max(2, math.floor((w - 8 + GAP) / (CARD_MIN_W + GAP)))
+        local cardW = math.floor((w - 8 - (cols - 1) * GAP) / cols)
+        local top = 28
+        for i, card in ipairs(self.cards) do
+            local c, r = (i - 1) % cols, math.floor((i - 1) / cols)
+            card:ClearAllPoints()
+            card:SetSize(cardW, CARD_H + LABEL_H)
+            card:SetPoint("TOPLEFT", self, "TOPLEFT", 4 + c * (cardW + GAP), -(top + r * (CARD_H + LABEL_H + GAP)))
+        end
+        local rows = math.ceil(#self.cards / cols)
+        self.rowHeight = top + rows * (CARD_H + LABEL_H + GAP) + 4
+        self:SetHeight(self.rowHeight)
+        return self.rowHeight
+    end
+
+    function row:Update()
+        if self:Sync() then self:Measure() end
+        local current = get()
+        local accent = Theme.Get().accent
+        for _, card in ipairs(self.cards) do card:Paint(card.key == current, accent) end
+    end
+
+    -- repaint when the accent or the theme changes elsewhere
+    Bind(row, function(self) self:Update() end)
+    row:Measure()
+    return row
 end
 
 -- Sample sentence in the chosen font inside a framed box (follows the font setting live).
@@ -291,8 +455,9 @@ function Kit.PreviewRow(parent, text)
     return row
 end
 
--- Wrapped dim text; its height follows the width (row:Measure()).
-function Kit.TextRow(parent, text)
+-- Wrapped dim text; its height follows the width (row:Measure()). text is a string, or getText() returns it (re-read on
+-- every row:Update()).
+function Kit.TextRow(parent, text, getText)
     local row = CreateFrame("Frame", nil, parent)
     row.text = Kit.Text(row, 12, "textDim")
     row.text:SetPoint("TOPLEFT", 4, -4)
@@ -300,14 +465,16 @@ function Kit.TextRow(parent, text)
     row.text:SetJustifyH("LEFT")
     row.text:SetWordWrap(true)
     if row.text.SetSpacing then row.text:SetSpacing(3) end
-    row.text:SetText(text or "")
+    row.text:SetText(getText and getText() or text or "")
     function row:Measure()
         local h = math.floor((self.text:GetStringHeight() or 14) + 10 + 0.5)
         self.rowHeight = math.max(20, h)
         self:SetHeight(self.rowHeight)
         return self.rowHeight
     end
-    function row:Update() end
+    function row:Update()
+        if getText then self.text:SetText(getText() or "") end
+    end
     row:Measure()
     return row
 end
