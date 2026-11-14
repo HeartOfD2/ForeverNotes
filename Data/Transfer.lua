@@ -290,7 +290,7 @@ end
 
 local function Str(value, limit)
     if type(value) ~= "string" then return "" end
-    return value:sub(1, limit or 20000)
+    return Store.Cut(value, limit or 20000)
 end
 
 local function Time(value)
@@ -315,15 +315,23 @@ local function GroupFor(name, color)
     return Store.CreateGroup(name, Color(color))
 end
 
+-- Drawings are equal when their cleaned strokes encode to the same JSON (sorted keys, numbers rounded the same way
+-- as in a code, so a drawing that went through export and import still matches its original).
+local function DrawingKey(drawing)
+    return Transfer.JSONEncode(Store.SanitizeDrawing(drawing).strokes)
+end
+
 local function Existing(rec, groupId, playerKey)
     local ids = playerKey and Store.PlayerNotes(playerKey) or Store.ListNotes({ kind = rec.kind })
+    local recKey
     for _, id in ipairs(ids) do
         local note = Store.GetNote(id)
         if note.kind == rec.kind and (note.title or "") == rec.title and (playerKey or note.group) == (playerKey or groupId) then
             if rec.kind == "text" then
                 if (note.text or "") == rec.text then return true end
-            elseif Store.CountSegments(note.drawing) == Store.CountSegments(rec.drawing) then
-                return true
+            else
+                recKey = recKey or DrawingKey(rec.drawing)
+                if DrawingKey(note.drawing) == recKey then return true end
             end
         end
     end

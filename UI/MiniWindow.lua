@@ -83,8 +83,14 @@ local function DiscardFresh()
     end
 end
 
-local function LeaveDetail()
+-- Pending edits of the open entry (title and text) go to the store now.
+local function FlushEdits()
+    if ui.titleSaver then ui.titleSaver:Flush() end
     if ui.ed then ui.ed:Flush() end
+end
+
+local function LeaveDetail()
+    FlushEdits()
     DiscardFresh()
     ctx.nid = nil
 end
@@ -238,7 +244,7 @@ local function Create()
         end,
         onHide = function()
             mini.shown = false
-            if ui.ed then ui.ed:Flush() end
+            FlushEdits()
         end,
     })
     local content = win.content
@@ -369,10 +375,12 @@ local function Create()
         Mini.Refresh()
     end, 22)
     del:SetPoint("TOPRIGHT")
-    ui.title = Kit.EditBox(dp, 100, 22, { placeholder = L["Title"], maxLetters = 80,
+    ui.title = Kit.EditBox(dp, 100, 22, { placeholder = L["Title"],
         onChange = function(text, userInput)
-            if userInput and ctx.nid then Store.UpdateNote(ctx.nid, { title = text }) end
+            if userInput and ctx.nid then ui.titleSaver:Set(ctx.nid, text) end
         end })
+    ns.Views.LimitBytes(ui.title, Store.MAX_TITLE)
+    ui.titleSaver = ns.Views.TitleSaver(ui.title)
     ui.title:SetPoint("TOPLEFT", back, "TOPRIGHT", 6, 0)
     ui.title:SetPoint("TOPRIGHT", del, "TOPLEFT", -6, 0)
     -- info row: where this entry lives, and a button to file it into a group
@@ -442,12 +450,28 @@ function Mini.OpenInPanel()
     if not win then return end
     local opened
     if ctx.nid then
+        FlushEdits() -- the large window must see what was typed here
         opened = ns.RevealNote and ns.RevealNote(ctx.nid)
+        if opened then
+            -- handed over: the note belongs to the large window now, the mini window must never discard it later
+            ctx.fresh, ctx.nid = nil, nil
+            if ui.shownNid then
+                ui.shownNid = nil
+                ui.ed:SetNote(nil)
+            end
+            if ui.shownCanvas then
+                ui.shownCanvas = nil
+                if ui.canvas then ui.canvas:SetNote(nil) end
+            end
+        end
     elseif ns.OpenPanelPage then
         opened = ns.OpenPanelPage(ctx.tab, ctx.player)
     end
     if opened then win:Hide() end
 end
+
+-- The title box of the open entry (nil before the window was built); used by the offline test.
+function Mini.TitleBox() return ui and ui.title end
 
 -- Called by the options page after scale/lock changed.
 function Mini.ApplySettings()

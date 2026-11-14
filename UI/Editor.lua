@@ -25,6 +25,12 @@ ns.Editor = Editor
 
 local PAD, TOOL_H, CHECK = 6, 22, 14
 local SAVE_DELAY = 0.4 -- seconds of quiet typing before a bound note is written to the store
+local MAX_TEXT = ns.Store.MAX_TEXT -- bytes; the store keeps no more, so the editor takes no more either
+local FULL_AT = MAX_TEXT - 3      -- from here a further character (up to 4 bytes) may not fit
+
+local function SayFull()
+    ns.Say(L["This note is full (%d bytes). Text beyond that is not added."]:format(MAX_TEXT))
+end
 
 ---------------------------------------------------------------------------
 -- Lines (pure text functions, tested by /forevernotes probe editor)
@@ -230,7 +236,20 @@ end
 function Methods:UpdateProgress()
     if not self.progress then return end
     local done, total = Editor.Progress(self.text)
-    self.progress:SetText(total > 0 and (done .. "/" .. total) or "")
+    local text = total > 0 and (done .. "/" .. total) or ""
+    if #self.text >= FULL_AT then text = L["Full"] .. (text ~= "" and "  " .. text or "") end
+    self.progress:SetText(text)
+end
+
+-- The note reached the byte limit: say so once (again only after it got clearly shorter). forced = text was cut.
+function Methods:CheckFull(forced)
+    local n = #self.text
+    if forced or n >= FULL_AT then
+        if not self.full then SayFull() end
+        self.full = true
+    elseif n < MAX_TEXT - 200 then
+        self.full = false
+    end
 end
 
 function Methods:Progress() return Editor.Progress(self.text) end
@@ -489,6 +508,10 @@ function Methods:LineButton(kind)
     if self.canEdit and not self.canEdit() then return end
     if self.editing then
         local text, cursor = Editor.ToggleLine(self.edit:GetText(), self.edit:GetCursorPosition(), kind)
+        if #text > MAX_TEXT then
+            SayFull() -- the marker does not fit; the box would cut the end of the note
+            return
+        end
         self.lastText = text
         self.edit:SetText(text)
         self.edit:SetCursorPosition(cursor)
@@ -498,7 +521,12 @@ function Methods:LineButton(kind)
         local text = self.text or ""
         local lines = Lines(text)
         if text ~= "" and not text:find("\n$") then text = text .. "\n" end
-        self.text = text .. Marker(kind, lines[#lines])
+        text = text .. Marker(kind, lines[#lines])
+        if #text > MAX_TEXT then
+            SayFull()
+            return
+        end
+        self.text = text
         self:SetEditing(true)
     end
     Changed(self)
@@ -564,6 +592,7 @@ function Methods:SetNote(nid)
     local note = nid and ns.Store.GetNote(nid)
     if note and note.kind ~= "text" then note = nil end
     self.nid = note and nid or nil
+    self.full = false -- a full note is announced on the first key typed into it
     if self.editing and self.edit:HasFocus() then self.edit:ClearFocus() end
     self:SetValue(note and note.text or "")
 end
@@ -630,6 +659,9 @@ function Editor.Create(parent, opts)
     local edit = CreateFrame("EditBox", nil, area.child)
     edit:SetMultiLine(true)
     edit:SetAutoFocus(false)
+    -- Byte limit like the store: the engine counts a terminating zero, so + 1 keeps exactly MAX_TEXT bytes;
+    -- OnTextChanged still cuts anything over the limit visibly in the box.
+    edit:SetMaxBytes(MAX_TEXT + 1)
     edit:SetPoint("TOPLEFT", PAD, -PAD)
     edit:SetPoint("TOPRIGHT", -PAD, -PAD)
     edit:SetHeight(20)
@@ -656,14 +688,29 @@ function Editor.Create(parent, opts)
         if not userInput then return end
         local text = self:GetText()
         local cont, cursor = Editor.ContinueList(ne.lastText or "", text, self:GetCursorPosition())
+        if cont and #cont > MAX_TEXT then cont = nil end -- no room for the next list marker
         if cont then
             ne.lastText = cont
             self:SetText(cont)
             self:SetCursorPosition(cursor)
             text = cont
         end
+        -- over the limit (a paste): the box shows what the note keeps, and the writer is told
+        local fit = ns.Store.Cut(text, MAX_TEXT)
+        local cut = fit ~= text
+        if cut then
+            local pos = math.min(self:GetCursorPosition(), #fit)
+            text = fit
+            self:SetText(text)
+            self:SetCursorPosition(pos)
+        end
         ne.text, ne.lastText = text, text
+        ne:CheckFull(cut)
         Changed(ne)
+    end)
+    -- A key typed into a full box may change nothing (no OnTextChanged); tell the writer why.
+    edit:HookScript("OnChar", function(self)
+        if #self:GetText() >= FULL_AT then ne:CheckFull(true) end
     end)
     edit:SetScript("OnCursorChanged", function(_, _, y, _, h)
         ne.cursorY, ne.cursorH = y, h

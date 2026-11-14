@@ -133,9 +133,15 @@ function events:ADDON_LOADED(loaded)
     wipe(readyCallbacks)
 end
 
+-- Take the list over first: an action that fails (or queues again) must not run twice after the next combat.
 function events:PLAYER_REGEN_ENABLED()
-    for i = 1, #pending do pending[i]() end
-    wipe(pending)
+    if #pending == 0 then return end
+    local list = pending
+    pending = {}
+    for i = 1, #list do
+        local ok, err = pcall(list[i])
+        if not ok then geterrorhandler()(err) end
+    end
 end
 
 frame:SetScript("OnEvent", function(self, event, ...)

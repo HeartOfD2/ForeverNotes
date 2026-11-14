@@ -19,6 +19,7 @@ local function Pad()
 end
 
 local views = {}  -- page key -> view
+local hosts = {}  -- page key -> the frame the view lives in
 local byName = {} -- localized page name (what EUI hands back) -> page
 
 ---------------------------------------------------------------------------
@@ -126,20 +127,30 @@ end
 -- Pages
 ---------------------------------------------------------------------------
 
-local function BuildPage(page, parent, y)
-    if page.view then
-        if IsPrebuild() then return 600 end -- no frames of our own while EUI pre-builds for search
-        local host = ns.Views.Host(parent, y, HOST_H)
-        views[page.key] = Settings.BuildView(page, host)
-        return HOST_H - y
-    end
-    return Render(parent, y, Settings.Rows(page.form, "eui"))
-end
-
 local function RestorePage(page)
     ns.Theme.CheckLive() -- accent or font may have changed while the page was hidden
     local view = views[page.key]
     if view and view.Refresh then view:Refresh() end
+end
+
+-- A view is built once per page. When EUI builds the page again, the existing view moves into the new parent:
+-- a new view would add another store listener (and editor, canvas, timers) every time.
+local function BuildPage(page, parent, y)
+    if page.view then
+        if IsPrebuild() then return 600 end -- no frames of our own while EUI pre-builds for search
+        local host = hosts[page.key]
+        if host and views[page.key] then
+            ns.Views.PlaceHost(host, parent, y)
+            host:Show()
+            RestorePage(page)
+        else
+            host = ns.Views.Host(parent, y, HOST_H)
+            hosts[page.key] = host
+            views[page.key] = Settings.BuildView(page, host)
+        end
+        return HOST_H - y
+    end
+    return Render(parent, y, Settings.Rows(page.form, "eui"))
 end
 
 -- Host entry point (router).

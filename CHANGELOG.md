@@ -1,5 +1,32 @@
 # Changelog — ForeverNotes
 
+## 1.0.0 (2026-11-14)
+
+First stable release, for the released WoW: Forever client (Interface 16001).
+
+- Fix: deleting a note that another sticky note is docked to no longer raises a Lua error; the docked note stays open
+  where it is.
+- Fix: long titles, names and reasons with umlauts or other special characters are no longer cut in the middle of a
+  character.
+- Fix: the import no longer skips a drawing just because an existing drawing with the same title has as many lines; it
+  compares the drawings themselves.
+- Fix: a new note handed from the mini window to the large window is no longer deleted later by the mini window.
+- Fix: `/fnotes note` while the target popup is hidden (turned off, in combat or in an instance) no longer creates an
+  empty note that disappears again; the chat says why and where to write the note instead.
+- Fix: an action waiting for the end of combat that fails is reported once and no longer runs again after the next
+  combat; the other waiting actions still run.
+- Fix: a damaged drawing without strokes in the saved data is repaired at login.
+- Fix: groups hold notes and drawings. "Delete group and notes" on the Notes page now deletes only the notes (and
+  "… and drawings" on the Drawings page only the drawings); a group that still holds entries of the other kind stays,
+  and the page says how many.
+- Fix: a note holds up to 20,000 bytes. The editor now stops there, shows "Full" and says so in the chat, instead of
+  showing more text than is saved.
+- Fix: titles, group names and ignore reasons are limited in bytes like the saved data, so the field shows exactly what
+  is kept, also with umlauts.
+- Fix: opening the ForeverNotes pages in EllesmereUI again no longer builds them anew each time.
+- Typing a title no longer saves and redraws all lists on every key; it is saved after a short pause, when the field
+  loses focus or when another entry is selected.
+
 ## 0.2.0 (2026-11-05)
 
 - **Thirteen themes** instead of seven: Standard, Graphite, Midnight, Frost, Nord, Emerald, Ember, High contrast, Light,

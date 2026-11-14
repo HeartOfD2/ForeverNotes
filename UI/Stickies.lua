@@ -471,6 +471,7 @@ function Stickies.Open(nid)
 end
 
 local function Release(f)
+    if not f.nid then return end -- already released
     f:Hide()
     if f.ne then f.ne:SetNote(nil) end
     if f.canvas then f.canvas:SetNote(nil) end
@@ -515,17 +516,31 @@ end
 -- Following the store and the game
 ---------------------------------------------------------------------------
 
-local function Sync(kind, id)
-    if not next(byId) then return end
+-- Undocking below saves sticky state, which announces a change and would run Sync again while the first run still
+-- holds its list of windows to release. The guard keeps it to one run.
+local syncing = false
+
+local function SyncNow()
+    local gone = {}
+    for nid, f in pairs(byId) do
+        if not Store.GetNote(nid) then gone[#gone + 1] = f end
+    end
+    for _, f in ipairs(gone) do
+        for _, x in ipairs(Stickies.DockedTo(f)) do
+            if Store.GetNote(x.nid) then Stickies.Undock(x) end -- gone ones are released next anyway
+        end
+    end
+    for _, f in ipairs(gone) do Release(f) end
+    for _, f in pairs(byId) do Paint(f) end
+end
+
+local function Sync(kind)
+    if syncing or not next(byId) then return end
     if kind == "note" or kind == "sticky" or kind == "group" or kind == "player" then
-        local gone = {}
-        for nid, f in pairs(byId) do
-            if not Store.GetNote(nid) then gone[#gone + 1] = f else Paint(f) end
-        end
-        for _, f in ipairs(gone) do
-            for _, x in ipairs(Stickies.DockedTo(f)) do Stickies.Undock(x) end
-            Release(f)
-        end
+        syncing = true
+        local ok, err = pcall(SyncNow)
+        syncing = false
+        if not ok then error(err, 0) end
     end
 end
 

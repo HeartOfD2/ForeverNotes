@@ -49,6 +49,21 @@ local function DiscardFresh()
     end
 end
 
+-- Why the popup stays hidden right now regardless of the target: "off" | "combat" | "instance", or nil.
+local function Suppressed(cfg)
+    if not cfg.enabled then return "off" end
+    if cfg.hideInCombat and InCombatLockdown() then return "combat" end
+    if cfg.hideInInstance and InInstance() then return "instance" end
+    return nil
+end
+
+local function SuppressedMessage(why)
+    if why == "off" then return L["The target popup is turned off. Write the note under Players."] end
+    if why == "combat" then return L["The target popup is hidden in combat. Write the note after combat or under Players."] end
+    if why == "instance" then return L["The target popup is hidden in instances. Write the note under Players."] end
+    return L["The target popup is hidden right now. Write the note under Players."]
+end
+
 local function HidePopup()
     if not win then return end
     ui.progHide = true
@@ -76,8 +91,7 @@ function Popup.Refresh()
         if ui then ui.reason:Hide() end
     end
     state.info = info
-    if not key or not cfg.enabled or state.dismissed == key
-            or (cfg.hideInCombat and InCombatLockdown()) or (cfg.hideInInstance and InInstance()) then
+    if not key or state.dismissed == key or Suppressed(cfg) then
         HidePopup()
         return
     end
@@ -174,6 +188,12 @@ function Popup.NewNote()
         return
     end
     local cfg = Cfg()
+    -- Nowhere to write: an empty note would only be thrown away at the next target change.
+    local why = Suppressed(cfg)
+    if why then
+        ns.Say(SuppressedMessage(why))
+        return
+    end
     if ui then
         ui.ed:Flush()
         DiscardFresh()
@@ -186,7 +206,13 @@ function Popup.NewNote()
     if win and win:IsShown() then
         ui.ed:Edit()
     else
-        ns.Say(L["Note saved. Find it under Players."])
+        -- not shown after all: do not keep an empty note nobody can write into
+        if state.fresh == nid then state.fresh = nil end
+        if state.nid == nid then state.nid = nil end
+        if ui then ui.busy = true end
+        Store.DeleteNote(nid)
+        if ui then ui.busy = false end
+        ns.Say(SuppressedMessage(nil))
     end
 end
 ns.NewTargetNote = Popup.NewNote
@@ -323,11 +349,12 @@ function Popup.Create()
     local ask = Kit.Text(ui.reason, 11, "textDim")
     ask:SetPoint("TOPLEFT", 8, -6)
     ask:SetText(L["Reason (optional)"])
-    ui.reasonInput = Kit.EditBox(ui.reason, 100, 22, { maxLetters = 120,
+    ui.reasonInput = Kit.EditBox(ui.reason, 100, 22, {
         onEnter = function(text)
             AddIgnore(text)
             ui.reason:Hide()
         end })
+    ns.Views.LimitBytes(ui.reasonInput, Store.MAX_REASON)
     ui.reasonInput:SetPoint("TOPLEFT", 8, -22)
     ui.reasonInput:SetPoint("TOPRIGHT", -150, -22)
     local confirm = Kit.Button(ui.reason, 64, L["Ignore"], function()

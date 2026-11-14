@@ -11,6 +11,8 @@ Store.MAX_SEGMENTS = 4000
 Store.COORD_MAX = 1000
 Store.MIN_WIDTH, Store.MAX_WIDTH = 1, 12
 local MAX_TITLE, MAX_TEXT, MAX_GROUP_NAME, MAX_REASON = 80, 20000, 40, 120
+-- Byte limits of the stored texts; input fields use the same numbers (UI/Views.lua LimitBytes, UI/Editor.lua).
+Store.MAX_TITLE, Store.MAX_TEXT, Store.MAX_GROUP_NAME, Store.MAX_REASON = MAX_TITLE, MAX_TEXT, MAX_GROUP_NAME, MAX_REASON
 local ELLIPSE_SEGMENTS = 32
 local STROKE_TYPES = { pen = true, erase = true, line = true, rect = true, ellipse = true }
 
@@ -30,10 +32,40 @@ local function Clamp(value, low, high)
     return value
 end
 
+-- Drops a character whose bytes are incomplete at the very end (an input box may stop in the middle of one).
+local function CleanTail(text)
+    local n = #text
+    local i = n
+    while i > 0 and i > n - 3 do -- back over at most 3 continuation bytes to the lead byte
+        local byte = text:byte(i)
+        if byte < 0x80 or byte > 0xBF then break end
+        i = i - 1
+    end
+    if i == 0 then return text end
+    local lead = text:byte(i)
+    local need = lead >= 0xF0 and 4 or lead >= 0xE0 and 3 or lead >= 0xC0 and 2 or 1
+    if n - i + 1 < need then return text:sub(1, i - 1) end
+    return text
+end
+
+-- At most limit bytes, never ending inside a UTF-8 character: when the cut falls on a continuation byte
+-- (0x80-0xBF), the started character is dropped as a whole; an incomplete last character is dropped as well.
+local function Cut(text, limit)
+    text = tostring(text or "")
+    if not limit or #text <= limit then return CleanTail(text) end
+    local stop = limit + 1 -- first byte that would be dropped
+    while stop > 1 do
+        local byte = text:byte(stop)
+        if byte < 0x80 or byte > 0xBF then break end
+        stop = stop - 1
+    end
+    return text:sub(1, stop - 1)
+end
+Store.Cut = Cut
+
 local function Trim(text, limit)
     text = tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", "")
-    if limit and #text > limit then text = text:sub(1, limit) end
-    return text
+    return Cut(text, limit)
 end
 
 local function CleanColor(color)
@@ -130,21 +162,30 @@ function Store.MoveGroup(id, direction)
     return false
 end
 
--- Notes of the deleted group become ungrouped unless deleteNotes is true.
-function Store.DeleteGroup(id, deleteNotes)
+-- Notes of the deleted group become ungrouped unless deleteNotes is true. Groups hold text notes and drawings: with
+-- a kind ("text" | "drawing") only entries of that kind are deleted, and a group that still holds entries of the other
+-- kind stays. Returns true plus whether the group itself is gone.
+function Store.DeleteGroup(id, deleteNotes, kind)
     local db = DB()
     if not db.groups[id] then return false end
-    local doomed = {}
+    local doomed, others = {}, 0
     for nid, note in pairs(db.notes) do
         if note.group == id then
-            if deleteNotes then doomed[#doomed + 1] = nid else note.group = nil end
+            if not deleteNotes then
+                note.group = nil
+            elseif kind and note.kind ~= kind then
+                others = others + 1
+            else
+                doomed[#doomed + 1] = nid
+            end
         end
     end
-    db.groups[id] = nil
+    local removed = others == 0
+    if removed then db.groups[id] = nil end
     for i = 1, #doomed do Store.DeleteNote(doomed[i], true) end
-    Changed("group", id)
+    if removed then Changed("group", id) end
     Changed("note")
-    return true
+    return true, removed
 end
 
 -- ---------------------------------------------------------------- notes
@@ -178,7 +219,7 @@ function Store.CreateNote(opts)
         updated = now,
     }
     if kind == "text" then
-        note.text = tostring(opts.text or ""):sub(1, MAX_TEXT)
+        note.text = Cut(opts.text, MAX_TEXT)
     else
         note.drawing = { v = 1, strokes = {} }
     end
@@ -207,7 +248,7 @@ function Store.UpdateNote(id, fields)
     for key, limit in pairs(EDITABLE) do
         local value = fields[key]
         if value ~= nil and not (key == "text" and note.kind ~= "text") then
-            value = key == "title" and Trim(value, limit) or tostring(value):sub(1, limit)
+            value = key == "title" and Trim(value, limit) or Cut(value, limit)
             if note[key] ~= value then
                 note[key] = value
                 changed = true
@@ -604,8 +645,12 @@ function Store.Validate()
         else
             note.kind = note.kind == "drawing" and "drawing" or "text"
             if note.group and not db.groups[note.group] then note.group = nil end
-            if note.kind == "drawing" and type(note.drawing) ~= "table" then
-                note.drawing = { v = 1, strokes = {} }
+            if note.kind == "drawing" then
+                if type(note.drawing) ~= "table" then
+                    note.drawing = { v = 1, strokes = {} }
+                elseif type(note.drawing.strokes) ~= "table" then
+                    note.drawing.strokes = {}
+                end
             end
             if note.player and not db.players[note.player] then note.player = nil end
             note.created = note.created or Now()

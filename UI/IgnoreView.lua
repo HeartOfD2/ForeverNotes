@@ -72,10 +72,11 @@ function ns.Views.IgnoreList(host, opts)
     end, 22)
     remove:SetPoint("TOPRIGHT", -8, -6)
     v.name:SetPoint("RIGHT", remove, "LEFT", -6, 0)
-    v.reason = Kit.EditBox(detail, 100, 22, { placeholder = L["Reason (optional)"], maxLetters = 120,
+    v.reason = Kit.EditBox(detail, 100, 22, { placeholder = L["Reason (optional)"],
         onChange = function(text, userInput)
             if userInput and v.sel then Store.SetIgnoreReason(v.sel, text) end
         end })
+    ns.Views.LimitBytes(v.reason, Store.MAX_REASON)
     v.reason:SetPoint("BOTTOMLEFT", 8, 8)
     v.reason:SetPoint("BOTTOMRIGHT", -8, 8)
     v.detail = detail

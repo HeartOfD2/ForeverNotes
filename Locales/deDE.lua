@@ -68,6 +68,17 @@ ns.locales.deDE = {
     ["Move down"] = "Nach unten",
     ["Delete group, keep notes"] = "Gruppe löschen, Notizen behalten",
     ["Delete group and notes"] = "Gruppe samt Notizen löschen",
+    ["Delete group, keep drawings"] = "Gruppe löschen, Zeichnungen behalten",
+    ["Delete group and drawings"] = "Gruppe samt Zeichnungen löschen",
+    ["Delete notes, keep group"] = "Notizen löschen, Gruppe behalten",
+    ["Delete drawings, keep group"] = "Zeichnungen löschen, Gruppe behalten",
+    ["This group also holds %s. Deleting the notes here keeps them and the group."] =
+        "Diese Gruppe enthält auch %s. Sie bleiben beim Löschen der Notizen hier erhalten, die Gruppe ebenso.",
+    ["This group also holds %s. Deleting the drawings here keeps them and the group."] =
+        "Diese Gruppe enthält auch %s. Sie bleiben beim Löschen der Zeichnungen hier erhalten, die Gruppe ebenso.",
+    ["This note is full (%d bytes). Text beyond that is not added."] =
+        "Diese Notiz ist voll (%d Bytes). Weiterer Text wird nicht übernommen.",
+    ["Full"] = "Voll",
     ["1 note"] = "1 Notiz",
     ["%d notes"] = "%d Notizen",
     ["No notes yet. Create one with the buttons below."] = "Noch keine Notizen. Lege mit den Schaltflächen unten eine an.",
@@ -97,7 +108,14 @@ ns.locales.deDE = {
     ["The ignore list is not available."] = "Die Ignorierliste ist nicht verfügbar.",
     -- target popup
     ["Target a player first."] = "Visiere zuerst einen Spieler an.",
-    ["Note saved. Find it under Players."] = "Notiz gespeichert. Du findest sie unter Spieler.",
+    ["The target popup is turned off. Write the note under Players."] =
+        "Das Ziel-Popup ist ausgeschaltet. Schreib die Notiz unter Spieler.",
+    ["The target popup is hidden in combat. Write the note after combat or under Players."] =
+        "Das Ziel-Popup ist im Kampf ausgeblendet. Schreib die Notiz nach dem Kampf oder unter Spieler.",
+    ["The target popup is hidden in instances. Write the note under Players."] =
+        "Das Ziel-Popup ist in Instanzen ausgeblendet. Schreib die Notiz unter Spieler.",
+    ["The target popup is hidden right now. Write the note under Players."] =
+        "Das Ziel-Popup ist gerade ausgeblendet. Schreib die Notiz unter Spieler.",
     ["New note for this player"] = "Neue Notiz für diesen Spieler",
     ["Expand"] = "Ausklappen",
     ["Collapse"] = "Einklappen",

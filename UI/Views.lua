@@ -17,13 +17,63 @@ local NONE = "_none" -- id of the pseudo group for notes without a group
 
 -- Empty frame for a view inside an EUI page. ctx "eui" makes every Kit widget below use the EllesmereUI look.
 function Views.Host(parent, y, height, ctx)
-    local pad = type(EllesmereUI) == "table" and EllesmereUI.CONTENT_PAD or 45
     local host = CreateFrame("Frame", nil, parent)
     host.fnCtx = ctx or "eui"
+    host:SetHeight(height)
+    Views.PlaceHost(host, parent, y)
+    return host
+end
+
+-- (Re)anchors a host at y in parent. EUI may build a page again into a new parent: the existing view moves there.
+function Views.PlaceHost(host, parent, y)
+    local pad = type(EllesmereUI) == "table" and EllesmereUI.CONTENT_PAD or 45
+    if host:GetParent() ~= parent then host:SetParent(parent) end
+    host:ClearAllPoints()
     host:SetPoint("TOPLEFT", parent, "TOPLEFT", pad, y)
     host:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -pad, y)
-    host:SetHeight(height)
-    return host
+end
+
+-- Single-line inputs count bytes like the store (a character takes 1 to 4 bytes), not letters. The engine's byte
+-- limit counts a terminating zero (SetMaxBytes(n) keeps n - 1 bytes) and drops a character that does not fit as a
+-- whole, so limit + 1 keeps exactly limit bytes. Text over the limit (should the engine ever let it through) is cut
+-- here, so the box always shows what the store keeps; the store cuts the same way (Store.Cut).
+function Views.LimitBytes(box, limit)
+    box.edit:SetMaxBytes(limit + 1)
+    box.edit:HookScript("OnTextChanged", function(edit, userInput)
+        if not userInput then return end
+        local text = edit:GetText()
+        local fit = Store.Cut(text, limit)
+        if fit ~= text then edit:SetText(fit) end
+    end)
+    return box
+end
+
+local TITLE_DELAY = 0.4 -- like the editor: quiet typing before a title is written to the store
+
+-- Debounced title writes: every store write redraws all views, so typing a title must not write per key.
+-- One pending (nid, text); Flush writes it now (focus lost, other note selected, window hidden).
+function Views.TitleSaver(box)
+    local saver = {}
+    function saver:Set(nid, text)
+        if self.nid and self.nid ~= nid then self:Flush() end
+        self.nid, self.text = nid, text
+        if self.timer then self.timer:Cancel() end
+        self.timer = C_Timer.NewTimer(TITLE_DELAY, function()
+            self.timer = nil
+            self:Flush()
+        end)
+    end
+    function saver:Flush()
+        if self.timer then
+            self.timer:Cancel()
+            self.timer = nil
+        end
+        local nid, text = self.nid, self.text
+        self.nid, self.text = nil, nil
+        if nid and Store.GetNote(nid) then Store.UpdateNote(nid, { title = text }) end
+    end
+    if box then box.edit:HookScript("OnEditFocusLost", function() saver:Flush() end) end
+    return saver
 end
 
 -- Empty frame filling parent, for a view in one of our own windows (inherits the window's theme context).
@@ -187,11 +237,13 @@ local function TreeView(host, cfg)
     v.stickyBtn:SetPoint("TOPRIGHT", leftmost, "TOPLEFT", -6, 0)
     Kit.Tooltip(v.stickyBtn, { L["Sticky note"], L["Puts this note on the screen as a small window."] }, "ANCHOR_TOP")
     leftmost = v.stickyBtn
-    v.title = Kit.EditBox(np, 100, 26, { placeholder = L["Title"], maxLetters = 80, size = 14,
+    v.title = Kit.EditBox(np, 100, 26, { placeholder = L["Title"], size = 14,
         onChange = function(text, userInput)
             local sel = v.sel
-            if userInput and sel and sel.kind == "note" then Store.UpdateNote(sel.id, { title = text }) end
+            if userInput and sel and sel.kind == "note" then v.titleSaver:Set(sel.id, text) end
         end })
+    Views.LimitBytes(v.title, Store.MAX_TITLE)
+    v.titleSaver = Views.TitleSaver(v.title)
     v.meta = Kit.Text(np, 11, "textDim")
     v.meta:SetWordWrap(false)
     v.ed = cfg.makeBody and cfg.makeBody(np) or Editor.Create(np, { toolbar = true, framed = true, size = 13,
@@ -341,6 +393,7 @@ local function TreeView(host, cfg)
 
     function v:Select(kind, id)
         self.title:ClearFocus()
+        self.titleSaver:Flush()
         self.ed:Flush()
         self:Rebuild()
         self:DiscardFresh(kind == "note" and id or nil)
@@ -390,6 +443,7 @@ local function TreeView(host, cfg)
         end
     end)
     host:SetScript("OnHide", function()
+        v.titleSaver:Flush()
         v.ed:Flush()
         v:DiscardFresh(nil)
     end)
@@ -439,11 +493,12 @@ local function BuildGroupPanel(v, panel)
     hintText:SetText(drawing and L["Drawings without a group appear here. Pick a group from the button above a drawing to file it."]
         or L["Notes without a group appear here. Pick a group from the button above a note to file it."])
 
-    local name = Kit.EditBox(panel, 100, 26, { placeholder = L["Group name"], maxLetters = 40, size = 14,
+    local name = Kit.EditBox(panel, 100, 26, { placeholder = L["Group name"], size = 14,
         onChange = function(text, userInput)
             local sel = v.sel
             if userInput and sel and sel.kind == "header" and sel.id ~= NONE then Store.RenameGroup(sel.id, text) end
         end })
+    Views.LimitBytes(name, Store.MAX_GROUP_NAME)
     name:SetPoint("TOPLEFT")
     name:SetPoint("TOPRIGHT")
     v.groupName = name
@@ -471,16 +526,26 @@ local function BuildGroupPanel(v, panel)
         if v.sel then Store.MoveGroup(v.sel.id, 1) end
     end, 26)
     down:SetPoint("LEFT", up, "RIGHT", 6, 0)
-    local keep = Kit.ConfirmButton(panel, 190, L["Delete group, keep notes"], function()
-        if v.sel then Store.DeleteGroup(v.sel.id, false) end
-    end, 26)
+    -- Groups hold notes and drawings; this page deletes only its own kind (the other page shows the rest).
+    function v:DeleteGroup(withEntries)
+        local sel = self.sel
+        if not (sel and sel.kind == "header" and sel.id ~= NONE) then return end
+        Store.DeleteGroup(sel.id, withEntries, withEntries and self.kind or nil)
+    end
+    local keep = Kit.ConfirmButton(panel, 210, drawing and L["Delete group, keep drawings"] or L["Delete group, keep notes"],
+        function() v:DeleteGroup(false) end, 26)
     keep:SetPoint("TOPLEFT", 0, -140)
-    local wipeAll = Kit.ConfirmButton(panel, 190, L["Delete group and notes"], function()
-        if v.sel then Store.DeleteGroup(v.sel.id, true) end
-    end, 26)
+    local wipeAll = Kit.ConfirmButton(panel, 210, "", function() v:DeleteGroup(true) end, 26)
     wipeAll:SetPoint("LEFT", keep, "RIGHT", 8, 0)
     local count = Kit.Text(panel, 12, "textDim")
     count:SetPoint("TOPLEFT", 2, -180)
+    local otherKind = drawing and "text" or "drawing"
+    local others = Kit.Text(panel, 12, "textDim")
+    others:SetPoint("TOPLEFT", 2, -200)
+    others:SetPoint("TOPRIGHT", -2, -200)
+    others:SetJustifyH("LEFT")
+    others:SetWordWrap(true)
+    v.groupOthers = others
 
     local groupOnly = { name, colorLabel, up, down, keep, wipeAll }
     for _, swatch in ipairs(swatches) do groupOnly[#groupOnly + 1] = swatch end
@@ -498,6 +563,17 @@ local function BuildGroupPanel(v, panel)
         count:SetText(CountText(#h.notes, v.kind))
         count:ClearAllPoints()
         count:SetPoint("TOPLEFT", 2, virtual and -140 or -180)
+        -- entries of the other kind in this group: deleting this page's entries keeps them, and the group with them
+        local otherCount = virtual and 0 or #Store.ListNotes({ kind = otherKind, group = h.id })
+        others:SetShown(otherCount > 0)
+        if otherCount > 0 then
+            local text = drawing and L["This group also holds %s. Deleting the drawings here keeps them and the group."]
+                or L["This group also holds %s. Deleting the notes here keeps them and the group."]
+            others:SetText(text:format(CountText(otherCount, otherKind)))
+            wipeAll:SetBaseText(drawing and L["Delete drawings, keep group"] or L["Delete notes, keep group"])
+        else
+            wipeAll:SetBaseText(drawing and L["Delete group and drawings"] or L["Delete group and notes"])
+        end
         if not virtual then
             if not name.edit:HasFocus() then name:SetText(h.label) end
             for i, swatch in ipairs(swatches) do swatch:SetSelected(SameColor(swatch.color, h.color)) end

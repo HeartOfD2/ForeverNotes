@@ -4,7 +4,7 @@
 ## Notes: Notes, player notes, drawings, an ignore list and sticky notes. Optionally inside the EllesmereUI options window.
 ## Notes-deDE: Notizen, Spieler-Notizen, Zeichnungen, Ignorierliste und Haftnotizen. Optional im EllesmereUI-Optionsfenster.
 ## Author: HeartOfD2
-## Version: 0.2.0
+## Version: 1.0.0
 ## X-Website: https://github.com/HeartOfD2/ForeverNotes
 ## X-Curse-Project-ID: 1752845
 ## Category: Miscellaneous
